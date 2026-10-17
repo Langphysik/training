@@ -181,6 +181,7 @@
   .week-group{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;display:flex;flex-direction:column;gap:9px;}
   .wg-head{display:flex;align-items:baseline;gap:8px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;color:var(--ink);}
   .week-group.is-bonus .wg-head{color:var(--ink-soft);}
+  .app.no-block [data-needs-block], .app.no-block .phase-chip, .app.no-block #blockSelect, .app.no-block #deleteBlockBtn{display:none !important;}
   details.week-group > summary.wg-head{cursor:pointer;list-style:none;user-select:none;}
   details.week-group > summary.wg-head::-webkit-details-marker{display:none;}
   details.week-group > summary.wg-head .caret{font-size:10px;color:var(--ink-dim);transition:transform .15s;}
@@ -278,7 +279,7 @@
   </header>
 
   <section>
-    <details class="collapsible">
+    <details class="collapsible" id="blockMgrDetails">
       <summary class="section-title"><span class="caret">▸</span>Blockverwaltung</summary>
       <div class="collapsible-body block-manager">
         <div class="block-switch-row">
@@ -316,7 +317,7 @@
     </details>
   </section>
 
-  <section>
+  <section data-needs-block>
     <details class="collapsible">
       <summary class="section-title"><span class="caret">▸</span>Strava-Import</summary>
       <div class="collapsible-body block-manager">
@@ -332,7 +333,7 @@
     </details>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Überblick<span class="tier">Tier 1</span></h2>
     <div class="hero">
       <div class="ring-wrap">
@@ -349,7 +350,7 @@
     </div>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Konsistenz · täglich<span class="tier">Tier 1</span></h2>
     <div class="heatmap-panel">
       <div class="heatmap-row">
@@ -364,7 +365,7 @@
     </div>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Blockübersicht · Phasen<span class="tier">Tier 1</span></h2>
     <div class="skyline-panel">
       <div class="skyline" id="skyline"></div>
@@ -372,17 +373,17 @@
     </div>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Filter<span class="tier">Zoom</span></h2>
     <div class="filter-row" id="filterRow"></div>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Heute</h2>
     <div class="today-card" id="todayCard"></div>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Wochenplan</h2>
     <div class="week-tabs" id="weekTabs"></div>
     <div class="week-range" id="weekRange"></div>
@@ -390,12 +391,12 @@
     <div class="week-groups" id="weekGroups"></div>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Trend je Belastungstyp<span class="tier">Tier 2 · Zoom</span></h2>
     <div class="chart-grid" id="sparkGrid"></div>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Wochenvergleich<span class="tier">Tier 2 · Zoom</span></h2>
     <div class="chart-grid">
       <div class="chart-card"><h4>Adherence pro Woche<span class="latest" style="font-weight:400;">nur wichtige Einheiten</span></h4><div id="adherenceWrap"><canvas id="adherenceChart"></canvas></div></div>
@@ -404,7 +405,7 @@
     </div>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Detailanalyse<span class="tier">Tier 3 · Detail</span></h2>
     <div class="chart-grid two">
       <div class="chart-card"><h4>Zielabweichung strukturierter Einheiten</h4><div id="deviationWrap"><canvas id="deviationChart"></canvas></div></div>
@@ -412,7 +413,7 @@
     </div>
   </section>
 
-  <section>
+  <section data-needs-block>
     <details class="collapsible">
       <summary class="section-title"><span class="caret">▸</span>Log<span class="tier">Tier 3 · Detail</span></summary>
       <div class="collapsible-body">
@@ -422,12 +423,12 @@
     </details>
   </section>
 
-  <section>
+  <section data-needs-block>
     <h2 class="section-title">Alle Blöcke · Saison-Überblick</h2>
     <div class="table-scroll" id="blockOverviewWrap"></div>
   </section>
 
-  <footer>Daten werden lokal für diesen Tracker gespeichert.</footer>
+  <footer data-needs-block>Daten werden lokal für diesen Tracker gespeichert.</footer>
 </div>
 
 <script>
@@ -611,14 +612,6 @@
 
   async function bootstrap(){
     let idx = await loadBlocksIndex();
-    if(idx.length===0){
-      const seed = buildSeedBlock();
-      await saveBlockDef(seed.id, seed);
-      await saveBlockLogNow(seed.id, {entries:{}});
-      idx = [{id:seed.id, name:seed.name, startDate:seed.startDate, numWeeks:seed.weeks.length, createdAt:new Date().toISOString()}];
-      await saveBlocksIndex(idx);
-      await setActiveBlockIdStorage(seed.id);
-    }
     idx = await migrateSeedRename(idx);
     await migrateAllBlocksToSessions(idx);
     idx = await migrateSeedContentSync(idx);
@@ -1470,14 +1463,18 @@
       renderAll();
     });
     document.getElementById('deleteBlockBtn').addEventListener('click', async ()=>{
-      if(blocksIndex.length<=1){ alert('Der letzte verbleibende Block kann nicht gelöscht werden.'); return; }
       if(!confirm('Block "'+currentBlock.name+'" wirklich löschen? Alle Logdaten dieses Blocks gehen verloren.')) return;
       const idToDelete = currentBlock.id;
       await deleteBlockStorage(idToDelete);
       blocksIndex = blocksIndex.filter(m=>m.id!==idToDelete);
       await saveBlocksIndex(blocksIndex);
       delete blockSummaryCache[idToDelete];
-      await switchToBlock(pickDefaultBlockId(blocksIndex));
+      if(blocksIndex.length===0){
+        currentBlock = null; activeBlockId = null; LOG = {entries:{}};
+        try{ await store.delete(ACTIVE_KEY); }catch(e){}
+      } else {
+        await switchToBlock(pickDefaultBlockId(blocksIndex));
+      }
       renderAll();
     });
     document.getElementById('exportDataBtn').addEventListener('click', exportAllData);
@@ -1492,6 +1489,13 @@
   /* ============ Main render ============ */
   function renderAll(){
     renderBlockSelect();
+    const noBlock = !currentBlock;
+    document.getElementById('app').classList.toggle('no-block', noBlock);
+    if(noBlock){
+      document.getElementById('blockEyebrow').textContent = 'Trainingstracker';
+      document.getElementById('blockMgrDetails').open = true;
+      return;
+    }
     renderHero();
     renderHeatmap();
     renderSkyline();
@@ -1506,9 +1510,11 @@
 
   async function initApp(){
     blocksIndex = await bootstrap();
-    let aId = await getActiveBlockIdStorage();
-    if(!aId || !blocksIndex.find(m=>m.id===aId)) aId = pickDefaultBlockId(blocksIndex);
-    await switchToBlock(aId);
+    if(blocksIndex.length>0){
+      let aId = await getActiveBlockIdStorage();
+      if(!aId || !blocksIndex.find(m=>m.id===aId)) aId = pickDefaultBlockId(blocksIndex);
+      await switchToBlock(aId);
+    }
     attachStaticListeners();
     renderAll();
   }
