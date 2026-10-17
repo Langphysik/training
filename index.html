@@ -560,7 +560,7 @@
   }
 
   /* ============ Storage layer (localStorage — standalone/GitHub Pages build) ============ */
-  const NS = 'radtraining:';
+  const NS = 'training:';
   const store = {
     async get(key){ const v = localStorage.getItem(NS+key); return v!==null ? {key, value:v} : null; },
     async set(key, value){ localStorage.setItem(NS+key, value); return {key, value}; },
