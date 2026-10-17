@@ -181,6 +181,17 @@
   .week-group{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;display:flex;flex-direction:column;gap:9px;}
   .wg-head{display:flex;align-items:baseline;gap:8px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;color:var(--ink);}
   .week-group.is-bonus .wg-head{color:var(--ink-soft);}
+  details.week-group > summary.wg-head{cursor:pointer;list-style:none;user-select:none;}
+  details.week-group > summary.wg-head::-webkit-details-marker{display:none;}
+  details.week-group > summary.wg-head .caret{font-size:10px;color:var(--ink-dim);transition:transform .15s;}
+  details.week-group[open] > summary.wg-head .caret{transform:rotate(90deg);}
+  details.week-group[open] > summary.wg-head{margin-bottom:9px;}
+  details.inner-details > summary{cursor:pointer;list-style:none;}
+  details.inner-details > summary::-webkit-details-marker{display:none;}
+  details.inner-details > summary h3::before{content:"▸ ";font-size:12px;color:var(--ink-dim);}
+  details.inner-details[open] > summary h3::before{content:"▾ ";}
+  details.inner-details[open] > summary h3{margin-bottom:12px;}
+  details.inner-details > summary h3{margin:0;}
   .wg-sub{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:400;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.05em;}
   .wg-list{display:flex;flex-direction:column;gap:8px;}
   .wg-empty{font-size:12px;color:var(--ink-dim);font-style:italic;padding:2px;}
@@ -309,7 +320,7 @@
     <details class="collapsible">
       <summary class="section-title"><span class="caret">▸</span>Strava-Import</summary>
       <div class="collapsible-body block-manager">
-        <div class="nb-hint">Ich hole deine Fahrten über die Strava-Verbindung im Chat und liefere sie dir als JSON in diesem Format (optional "intervalWatts" = Ø-Leistung nur der Intervalle, für den Trend je Belastungstyp) — hier einfügen, dann jeder Aktivität den passenden Plan-Eintrag zuweisen.</div>
+        <div class="nb-hint">Ich hole deine Fahrten über die Strava-Verbindung im Chat und liefere sie dir als JSON in diesem Format (optional "intervalWatts" = Ø-Leistung nur der Intervalle, für den Trend je Belastungstyp) — hier einfügen, dann jeder Aktivität die Art des Trainings zuweisen.</div>
         <div class="nb-pane" style="max-width:600px;margin-top:10px">
           <button id="stravaShowExample" class="nb-secondary">Beispiel-Format zeigen</button>
           <textarea id="stravaJsonInput" rows="6" placeholder='[{"date":"2026-09-15","name":"Morgenfahrt","distanceKm":13.2,"elevationM":105,"durationMin":32,"avgWatts":145,"np":152,"avgHr":128}]'></textarea>
@@ -402,9 +413,13 @@
   </section>
 
   <section>
-    <h2 class="section-title">Log<span class="tier">Tier 3 · Detail</span></h2>
-    <div class="history-toolbar" id="historyToolbar"></div>
-    <div class="table-scroll" id="historyWrap"></div>
+    <details class="collapsible">
+      <summary class="section-title"><span class="caret">▸</span>Log<span class="tier">Tier 3 · Detail</span></summary>
+      <div class="collapsible-body">
+        <div class="history-toolbar" id="historyToolbar"></div>
+        <div class="table-scroll" id="historyWrap"></div>
+      </div>
+    </details>
   </section>
 
   <section>
@@ -436,6 +451,21 @@
   const IMPORTANCE_META = { key:{label:'Wichtig'}, bonus:{label:'Bonus'} };
   const KEY_TAGS = new Set(['sweetspot','threshold','vo2max','kraft']);
   function defaultImportance(tag){ return KEY_TAGS.has(tag) ? 'key' : 'bonus'; }
+
+  const TRAINING_TYPES = [
+    {label:'Sweetspot 2×10 min', title:'Sweet Spot Intervalle', detail:'2×10 min', tag:'sweetspot'},
+    {label:'Sweetspot 3×10 min', title:'Sweet Spot Intervalle', detail:'3×10 min', tag:'sweetspot'},
+    {label:'Sweetspot 2×20 min', title:'Sweet Spot Intervalle', detail:'2×20 min', tag:'sweetspot'},
+    {label:'Threshold 2×8 min', title:'Threshold Intervalle', detail:'2×8 min', tag:'threshold'},
+    {label:'Threshold 3×8 min', title:'Threshold Intervalle', detail:'3×8 min', tag:'threshold'},
+    {label:'Threshold 2×12 min', title:'Threshold Intervalle', detail:'2×12 min', tag:'threshold'},
+    {label:'VO2max 5×3 min', title:'VO2max Intervalle', detail:'5×3 min', tag:'vo2max'},
+    {label:'VO2max 4×4 min', title:'VO2max Intervalle', detail:'4×4 min', tag:'vo2max'},
+    {label:'FTP-Test', title:'FTP-Test', detail:'', tag:'test'},
+    {label:'Lange Ausfahrt (Z2)', title:'Lange Ausfahrt', detail:'Z2', tag:'lang'},
+    {label:'Lockere Fahrt (Z1–Z2)', title:'Lockere Fahrt', detail:'Z1–Z2', tag:'locker'},
+    {label:'Sonstige Fahrt', title:'Alternative Fahrt', detail:'', tag:'alternative'}
+  ];
 
   const EXAMPLE_BLOCK = {
     name: "Beispiel-Block",
@@ -938,7 +968,7 @@
     const week = currentBlock.weeks[wIdx];
     const openKey = week.sessions.filter(bl=>bl.loggable && bl.importance==='key' && !isDone(bl.id));
     const openBonus = week.sessions.filter(bl=>bl.loggable && bl.importance==='bonus' && !isDone(bl.id));
-    let html = '<div class="kicker">Woche '+(wIdx+1)+' · '+escapeHtml(week.phaseLabel)+'</div><h3>Diese Woche empfohlen</h3>';
+    let html = '<div class="kicker">Woche '+(wIdx+1)+' · '+escapeHtml(week.phaseLabel)+'</div><details class="inner-details" id="todayDetails"'+(todayOpen?' open':'')+'><summary><h3>Diese Woche empfohlen</h3></summary>';
     if(openKey.length===0 && openBonus.length===0){
       html += '<div class="today-empty">Alle wichtigen Einheiten dieser Woche sind erledigt.</div>';
     } else {
@@ -947,7 +977,9 @@
       html += openBonus.map(bl=>'<div class="mini-block">Bonus · <b>'+escapeHtml(bl.title)+'</b> — '+escapeHtml(bl.detail)+'</div>').join('');
       html += '</div>';
     }
+    html += '</details>';
     card.innerHTML = html;
+    card.querySelector('#todayDetails').addEventListener('toggle', e=>{ todayOpen = e.target.open; });
   }
 
   /* ============ Week tabs ============ */
@@ -1006,6 +1038,8 @@
     '</div>';
   }
 
+  let todayOpen = false;
+  const openGroups = new Set();
   function sessionGroupHTML(wIdx, importance, label, sub){
     const week = currentBlock.weeks[wIdx];
     const sessions = week.sessions.filter(bl=>bl.importance===importance);
@@ -1020,7 +1054,8 @@
     } else {
       inner += '<button class="add-entry-btn" data-vaddw="'+wIdx+'" data-vaddimp="'+importance+'">+ Eintrag</button>';
     }
-    return '<div class="week-group'+(importance==='bonus'?' is-bonus':'')+'"><div class="wg-head">'+label+'<span class="wg-sub">'+sub+'</span></div><div class="wg-list">'+inner+'</div></div>';
+    const isOpen = openGroups.has(importance) || !!(formTarget && formTarget.wIdx===wIdx && formTarget.importance===importance);
+    return '<details class="week-group'+(importance==='bonus'?' is-bonus':'')+'" data-imp="'+importance+'"'+(isOpen?' open':'')+'><summary class="wg-head"><span class="caret">▸</span>'+label+'<span class="wg-sub">'+sub+' · '+sessions.length+'</span></summary><div class="wg-list">'+inner+'</div></details>';
   }
 
   function renderWeekGroups(){
@@ -1029,6 +1064,9 @@
     const week = currentBlock.weeks[wIdx];
     document.getElementById('weekNote').textContent = week.weekNote || '';
     wrap.innerHTML = sessionGroupHTML(wIdx,'key','Wichtig','Pflicht diese Woche') + sessionGroupHTML(wIdx,'bonus','Bonus','optional');
+    wrap.querySelectorAll('details.week-group').forEach(d=>{
+      d.addEventListener('toggle', ()=>{ if(d.open) openGroups.add(d.dataset.imp); else openGroups.delete(d.dataset.imp); });
+    });
 
     wrap.querySelectorAll('input[type=checkbox][id^="chk-"]').forEach(chk=>{
       chk.addEventListener('change', ()=>{
@@ -1311,13 +1349,12 @@
       if(wIdx==null){
         return '<tr><td class="mono">'+act.date+'</td><td>'+escapeHtml(act.name||'Aktivität')+'<div class="strava-summary">'+summary+'</div></td><td colspan="1" style="color:var(--crimson)">außerhalb des aktiven Blocks</td></tr>';
       }
-      const candidates = currentBlock.weeks[wIdx].sessions.filter(bl=>bl.loggable);
-      const options = candidates.map(bl=>'<option value="'+bl.id+'">'+escapeHtml(bl.title)+(isDone(bl.id)?' (bereits erledigt)':'')+'</option>').join('');
+      const options = TRAINING_TYPES.map((t,i)=>'<option value="type:'+i+'">'+escapeHtml(t.label)+'</option>').join('');
       return '<tr data-idx="'+idx+'"><td class="mono">'+fmtDateShort(parseISODate(act.date))+'</td>'+
         '<td>'+escapeHtml(act.name||'Aktivität')+'<div class="strava-summary">'+summary+'</div></td>'+
-        '<td><select class="strava-target-select" data-idx="'+idx+'">'+options+'<option value="new-bonus">Neue Bonus-Einheit anlegen</option><option value="">Ignorieren</option></select></td></tr>';
+        '<td><select class="strava-target-select" data-idx="'+idx+'">'+options+'<option value="">Ignorieren</option></select></td></tr>';
     }).join('');
-    wrap.innerHTML = '<table class="strava-match-table"><thead><tr><th>Datum</th><th>Aktivität</th><th>Ziel-Eintrag</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    wrap.innerHTML = '<table class="strava-match-table"><thead><tr><th>Datum</th><th>Aktivität</th><th>Art des Trainings</th></tr></thead><tbody>'+rows+'</tbody></table>'+
       '<button id="stravaApplyBtn">Übernehmen</button>';
     document.getElementById('stravaApplyBtn').addEventListener('click', applyStravaMatches);
   }
@@ -1331,9 +1368,10 @@
       const idx = parseInt(sel.dataset.idx,10);
       const act = pendingStravaActivities[idx];
       const wIdx = pendingStravaWeeks[idx];
-      if(targetId==='new-bonus'){
+      if(targetId.startsWith('type:')){
+        const t = TRAINING_TYPES[parseInt(targetId.slice(5),10)];
         targetId = uid();
-        currentBlock.weeks[wIdx].sessions.push({ id:targetId, title: act.name||'Alternative Fahrt', detail:'', tag:'alternative', importance:'bonus', loggable:true, power:null, timingHint:null });
+        currentBlock.weeks[wIdx].sessions.push({ id:targetId, title:t.title, detail:t.detail, tag:t.tag, importance:defaultImportance(t.tag), loggable:true, power:null, timingHint:null });
         changedDef = true;
       }
       LOG.entries[targetId] = LOG.entries[targetId] || {};
